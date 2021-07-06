@@ -1,0 +1,201 @@
+Begin rebalanceForest 
+	Set a = get a from header
+	Set b = get b from header
+	Set L = get L from header
+	Set n = get n from header
+
+	Set lowTree = get lowTree address from header
+	Set highTree = get highTree address from header
+	Set directory = get directory address from header
+
+	Set k = (b-a) / L
+	Set t = log2(n)
+
+	Set lockedL = false
+
+	Set ratedTrees = int array size k+2
+
+	Function getRating ( address )
+		seek(address + sizeof(address))
+		Set size = Read Int
+	
+		Set range = t / 3
+
+		IF size == 0
+			return -2
+
+		IF size == (t or t + 1)
+			return 3
+
+		IF size >= (t - range)
+			return 2
+
+		IF size >= (t - (2 * range))
+			return 1
+	
+		ELSE
+			return 0 
+	End Function
+
+	Function adjustA ( degree ) 
+		Set adjustment = degree * L 
+		Add a -= adjustment
+		Set Lockedl = true
+	End Function	
+	
+	Function adjustB ( degree ) 
+		Set adjustment = degree * L
+		Add b += adjustment
+		Set LockedL = true
+	End Function
+
+	Function adjustL ( degree ) 
+		Set range = b - a
+		Set i = 0
+		Set incr = 1 
+		IF degree < 0
+			Set incr = -1
+		
+		Set degree = Absolute( degree ) 
+		Loop while i < degree
+			Add i += 1
+			Add L += incr
+			Loop while range MOD L does not equal 0 
+				Add L += incr
+			End Loop
+		End Loop
+	End Function
+
+/*
+*			~Interpret Phase~ O(k)
+*/			
+			
+	Set ratedTrees[0] = getRating(lowTree)
+	Set ratedTrees[k+1] = getRating(highTree)
+
+	Set i = 1
+
+	Loop while i < k
+		Set currentAddress = directory + (i * (sizeof(address) + sizeof(int)))
+		Set ratedTrees[i] = getRating(currentAddress)
+		Add i += 1
+	End Loop
+
+/*
+*			~Partition Phase~ O (k)
+*/
+
+	Set divider = floor ( (k + 2) / 4 ) 
+	Set sectionRating  = int array of size 3
+	Set i = 0
+
+	//Low Section
+	Loop while i < divider
+		Add sectionRating[0] += ratedTrees[i]
+		Add i += 1
+	End Loop 
+
+	Set sectionRating[0] = sectionRating[0] / divder
+
+	//Middle Section
+	Loop while i < ((k + 2) - divider)
+		Add sectionRating[1] += ratedTrees[i] 
+		Add i += 1
+	End Loop
+	
+	Set sectionRating[1] = sectionRating[1] / ((k + 2) - divider)
+
+	//High Section
+	Loop while i < (k + 2)
+		Add sectionRating[2] +=ratedTrees[i]
+		Add i += 1
+	End Loop
+	
+	Set sectionRating[2] = sectionRating[2] / divider
+
+/*
+*			~Restructure Phase~
+*/
+
+	set half = divider / 2 
+	
+	//Adjust A
+	IF sectionRating[0] == -2
+		adjustA(-h)
+
+	ELSE IF sectionRating[0] > 1.5
+		adjustA(3)
+
+	ELSE IF sectionRating[0] > .75
+		adjustA(2)
+	
+	ELSE 
+		adjustA(1)
+	
+	//Adjust B 
+	IF sectionRating[2] == -2
+		adjustB(-h)
+
+	ELSE IF sectionRating[2] > 1.5
+		adjustB(3)
+
+	ELSE IF sectionRating[2] > .75
+		adjustB(2)
+	
+	ELSE 
+		adjustB(1)
+
+	//Adjust Interval Lengths
+	IF sectionRating[1] > 1.75
+		adjustL(-3)
+
+	ELSE IF sectionRating[1] > 1
+		adjustL(-2)
+
+	ELSE IF sectionRating[1] > 0 || LockedL 
+		adjustL(-1)
+	
+	ELSE IF sectionRating[1] > -1
+			adjustL(1)
+
+	ELSE 
+			adjustL(2) 
+
+/*
+*			~Assignment Phase~ O(nlgn)
+*/
+
+	Set list = new LinkedList
+	
+	IF lowTree is not empty
+		Loop for each key in lowTree
+			IF getIndex(key) does not equal lowTree
+				list.add(key)
+				remove(key)
+		End Loop
+	
+	IF highTree is not empty
+		Loop for each key in highTree
+			IF getIndex(key) does not equal highTree
+				list.add(key)
+				remove(key)
+		End Loop 
+	
+	Set i = 0
+	Loop while i < k
+		Add i += 1
+		IF tree is not empty
+			Loop for each key in tree
+				IF getIndex(key) does not equal i
+					list.add(key)
+					remove(key)
+			End Loop
+	End Loop
+
+	Loop for each key in list
+		insert(key)
+	End Loop
+Exit. 
+
+		
+	
