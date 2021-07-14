@@ -1,8 +1,25 @@
 import math
 #TODO
 #Update pointer to root after rotating
-#keep track of number of elements in a tree with parrallel array
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Calibrations
+category_size_divider = 3
+
+full_rating = 3
+med_full_rating = 2
+low_full_rating = 1
+low_empty_rating = 0
+empty_rating = -2
+
+strong_adj = 3
+med_adj = 2
+low_adj = 1
+
+cluster_size = math.floor((k+2)/4)
+
+lockedL = False
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Header
 class Node:
     def  __init__(self, data):
         self.data = data
@@ -26,6 +43,8 @@ def __init__(self):
 	self.directory = {None,None,None}
 	self.treeSizes = {0,0,0}
 
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Operations
 def member(self, key):
 	size = self.n
 
@@ -315,7 +334,7 @@ def maximum(self, key):
 			return treeMax(node)
 	return -1
 
-#helpers
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~helpers
 def treeMin(self, node):
 	while node.left != None:
 		node = node.left
@@ -338,8 +357,156 @@ def getIndex(self, key):
 	#Add one as an offset for the lower outer tree in 0
 	return ((key-self.a) // self.l) + 1
 
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Balancing
 
+def getRating(self, index):
+	treeSize = treeSizes[index]
+	threshold = math.ceil(log2(self.n))
+
+	if treeSize is 0:
+		return empty_rating
+
+	elif treeSize is threshold or treeSize is (threshold+1):
+		return full_rating
+
+	categorySize = threshold/category_size_divider
+
+	elif treeSize >= (threshold - categorySize):
+		return med_full_rating
+
+	elif treeSize >= (threshold - (categorySize*2)):
+		return low_full_rating
+
+	else:
+		return low_empty_rating 
+
+def adjustA(self, degree):
+	adjustment = degree * self.l
+	self.a -= adjustment
+	lockedL = True
+
+def adjustB(self, degree):
+	adjustment = degree * self.l
+	self.b += adjustment
+	lockedL = True
+
+def adjustL(self, degree):
+	forestRange = self.b - self.a
+	incr = 1
+	if degree < 0:
+		incr = -1
+
+	degree = abs(degree)
+
+	for i in range(degree):
+		self.l += incr
+		while (forestRange % self.l) is not 0:
+			self.l += incr 
+
+	self.k = forestRange/self.l
 
 def balance(self):
+	ratedTrees = [0]*(self.k+2)
 
-def print(self):
+	#Interpret
+	for i in range(self.k+2):
+		ratedTrees[i] = getRating(i)
+
+	#Partition
+	divider = cluster_size
+	sectionRating = [0]*3
+	index = 0
+	#low section
+	while index < divider:
+		sectionRating[0] += ratedTrees[index]
+		index+=1
+
+	sectionRating[0] /= divider
+
+	#middle section
+	while index < ((k+2) - divider):
+		sectionRating[1] += ratedTrees[index]
+		index+=1
+
+	sectionRating[1] /= ((k+2) - divider)
+
+	#high section
+	while index < (self.k+2):
+		sectionRating[2] += ratedTrees[index]
+		index+=1
+
+	sectionRating[2] /= divider
+
+	#Restructure
+	half = divider // 2
+
+	#Adjust A
+	if sectionRating[0] is empty_rating
+		adjustA(-1*half)
+
+	elif sectionRating[0] > (full_rating // 2):
+		adjustA(strong_adj)
+
+	elif sectionRating[0] > (full_rating // 4):
+		adjustA(med_adj)
+
+	else:
+		adjustA(low_adj)
+
+	#Adjust B
+	if sectionRating[2] is empty_rating
+		adjustB(-1*half)
+
+	elif sectionRating[2] > (full_rating // 2):
+		adjustB(strong_adj)
+
+	elif sectionRating[2] > (full_rating // 4):
+		adjustB(med_adj)
+
+	else:
+		adjustB(low_adj)
+
+	#Adjust interval lengths
+	if sectionRating[1] > (full_rating // 2):
+		adjustL(-1 * strong_adj)
+
+	elif sectionRating[1] > (full_rating // 3):
+		adjustL(-1 * med_adj)
+
+	elif sectionRating[1] > 0 or lockedL:
+		adjustL(-1 * low_adj)
+	
+	elif sectionRating[1] > (empty_rating // 2):
+		adjustL(low_adj)
+
+	else:
+		adjustL(med_adj)
+
+	#Assignment 
+	displacments = []
+	for i in range(len(directory)):
+		if self.directory[i] is not None:
+			keys = validateNodes(i)
+			for key in keys:
+				displacments.append(key)
+
+	for k in displacments:
+		i = getIndex(k)
+		insertInTree(i,k)
+
+def validateNodes(index)
+	temp = []
+	temp.append(self.inOrder(self.directory[index],index))
+	return temp
+
+
+def inOrder(self, node,actual):
+        if node != None:
+            self.inOrder(node.left,actual)
+            val = node.data
+            expected = getIndex(val)
+            if expected is not actual:
+            	deleteNode(node,val,actual)
+            	yield val
+
+            self.inOrder(node.right,actual)
