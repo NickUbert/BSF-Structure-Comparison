@@ -1,25 +1,16 @@
 import math
-#TODO
-#Update pointer to root after rotating
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Calibrations
-category_size_divider = 3
-
-full_rating = 3
-med_full_rating = 2
-low_full_rating = 1
-low_empty_rating = 0
+#Enums
 empty_rating = -2
+low_rating = 0
+med_rating = 1
+high_rating = 2
+full_rating = 5
 
-strong_adj = 3
-med_adj = 2
 low_adj = 1
+med_adj = 2
+large_adj = 3
 
-cluster_size = math.floor((k+2)/4)
 
-lockedL = False
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Header
 class Node:
     def  __init__(self, data):
         self.data = data
@@ -27,486 +18,282 @@ class Node:
         self.left = None
         self.right = None
         self.bf = 0
-        
 
 class BalancedSearchForest:
 
-def __init__(self):
-	self.n = 0
-	self.k = 1
-	self.l = 0
-	self.a = -1
-	self.b = -1
-	self.t = 0
-	
-	#directory is an array of root nodes
-	self.directory = {None,None,None}
-	self.treeSizes = {0,0,0}
+	def __init__(self):
+		self.directory = [None,None,None]
+		self.treeSizes = [0,0,0]
+		self.a = 0
+		self.b = 0
+		self.t = 1
+		self.k = 1
+		self.l = 1
+		self.n = 0
+		self.lockedL = False
 
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Operations
-def member(self, key):
-	size = self.n
-
-	if size is 0:
-		return False
-
-	elif size is in range(2):
-		return key is self.a or key is self.b 
-
-	elif key < self.a 
-		return searchDirectory(0, key)
-
-	elif key >= self.b
-		return searchDirectory(self.k+1, key)
-
-	#Key is within inner range
-	index = getIndex(key)
-	return searchDirectory(index, key)
-
-
-def searchDirectory(self, index, key):
-	#Check the directory index of the 
-	root = self.directory[index] 
-	if root is None:
-		return None
-
-	return searchTree(root,key)
-
-def searchTree(node, key):
-	#Search the AVL tree
-	if node == None or key == node.data:
-            return node
-
-        if key < node.data:
-            return self.searchTree(node.left, key)
-        return self.searchTree(node.right, key)
-
-def insert(self, key):
-	if key<0:
-		#invalid key
-		return
-
-	elif self.member(key) is not None:
-		return
-
-	size = self.n
-	elif size is 0: 
-		self.a, self.b = key
-		self.n += 1
-		return
-
-	elif size is 1:
-		# a == b when size is 1
-		if key is self.a:
+	def insert(self, key):
+		if key<0:
 			return
 
-		if key < self.a:
+		if self.member(key) is not None:
+			return
+
+		#starting out
+		size = self.n
+		if size == 0:
 			self.a = key
+			self.insertInTree(1, key)
+
+		elif size == 1:
+			if key < self.a:
+				self.b = self.a
+				self.a = key
+				self.insertInTree(1,key)
+
+			else:
+				self.b = key
+				self.insertInTree(2,key)
+
+			self.l = self.b - self.a
+
 		else:
-			self.b = key
+				index = self.getIndex(key)
+				self.insertInTree(index, key)
 
-		self.n += 1
+	def member(self, key):
+		return None
 
-	elif size is 2:
-		#at this point, endpoints are still elements 
-		if key is self.a or key is self.b:
-			return
+	def balance(self):
+		self.lockedL = False
+		treeRatings = [0]*(self.k+2)
 
+		#Interpret Phase
+		for i in range(self.k+2):
+			treeRatings[i] = self.treeRating(i)
+
+		#Partition Phase
+
+		sectionSize = math.ceil((self.k + 2)/4)
+		sections = [0,0,0]
+		index = 0
+		while index < sectionSize:
+			sections[0] += treeRatings[index]
+			index += 1
+
+		while index < (self.k+2)-sectionSize:
+			sections[1] += treeRatings[index]
+			index += 1
+
+		while index < self.k+2:
+			sections[2] += treeRatings[index]
+			index += 1
+
+		sections[0] /= sectionSize
+		sections[1] /= (self.k+2)-sectionSize
+		sections[2] /= sectionSize
+
+		#Restructure Phase
+		if sections[0] >= full_rating/3:
+			self.adjustA(large_adj)
+		elif sections[0] >= full_rating/4:
+			self.adjustA(med_adj)
+		elif sections[0] == empty_rating:
+			self.adjustA(-1 * large_adj)
+		else:
+			self.adjustA(low_adj)
+		
+		if sections[2] >= full_rating/3:
+			self.adjustB(large_adj)
+		elif sections[2] >= full_rating/4:
+			self.adjustB(med_adj)
+		elif sections[2] == empty_rating:
+			self.adjustB(-1 * low_adj)
+		else:
+			self.adjustB(med_adj)
+
+		if not self.lockedL:
+			if sections[1] >= full_rating/2:
+				self.adjustL(large_adj)
+			elif sections[1] >= full_rating/3:
+				self.adjustL(med_adj)
+			elif sections[1] == empty_rating:
+				self.adjustL(-1 * large_adj)
+			else:
+				self.adjustL(low_adj)
+
+		#Reassign
+		#Increase directory AND treesizes
+		displacements = []
+		for i in range(len(self.directory)):
+			if self.directory[i] is not None:
+				keys = self.validateNodes(i)
+				for key in keys:
+					displacements.append(key)
+
+		print("DIS:",displacements)
+		newDir = [None] * (self.k+2)
+		newSizes = [0] * (self.k+2)
+		for i in range(min(self.k+2,len(self.directory))):
+			newDir[i] = self.directory[i]
+			newSizes[i] = self.treeSizes[i]
+
+		self.directory = newDir
+		self.treeSizes = newSizes
+
+		for key in displacements:
+			newIndex = self.getIndex(key)
+			self.insertInTree(newIndex,key)
+
+	def treeRating(self, index):
+		size = self.treeSizes[index]
+		rangeSize = self.t // 3
+		if size == 0:
+			return empty_rating
+
+		elif size >= self.t:
+			return full_rating
+
+		elif size >= (self.t-rangeSize):
+			return high_rating
+
+		elif size >= (self.t-(2*rangeSize)):
+			return med_rating
+
+		else:
+			return low_rating
+
+
+
+	#Helpers
+	def getIndex(self, key):
+		#pre: key is unique, valid, and within a and b 
 		if key < self.a:
-			insertInTree(0,key)
-		elif key > self.b:
-			insertInTree(k+1,key)
+			return 0
 
-		else:
-			#first inner element
-			insertInTree(1,key)
+		if key >= self.b:
+			return self.k+1
 
-	
+		return ((key-self.a) // self.l) + 1 
 
-def insertInTree(index, key):
-        node =  Node(key)
-        y = None
-        x = self.directory[index]
+	def incrementTreeSize(self, index):
+		self.treeSizes[index] += 1
 
-        while x != None:
-            y = x
-            if node.data < x.data:
-                x = x.left
-            else:
-                x = x.right
+	def decrementTreeSize(self, index):
+		self.treeSizes[index]-= 1
 
-        # y is parent of x
-        node.parent = y
-        if node.parent is not None:
-			if node.data < y.data:
-            	y.left = node
-        	else:
-            	y.right = node
+	def incrementForestSize(self):
+		self.n += 1
+		self.t = math.floor(math.log2(self.n))
 
-        self.treeSizes[index] += 1
-        self.localUpdateBalance(node,index)
+	def decrementForestSize(self):
+		self.n -= 1
+		self.t = math.floor(math.log2(self.n)) 
+
+	def adjustA(self, degree):
+		self.a -= (self.l * degree)
+		if self.a < 0:
+			self.a = 0
+		self.k += degree
+		self.lockedL = True
 
 
-def localUpdateBalance(self, node, index):	
- 	if node.bf < -1 or node.bf > 1:
-    	self.localRebalance(node,index)
-            return;
+	def adjustB(self,degree):
+		self.b += (self.l * degree)
+		self.k += degree
 
-    if node.parent != None:
-    	if node == node.parent.left:
-            node.parent.bf -= 1
+		self.lockedL = True
 
-        	if node == node.parent.right:
-        	    node.parent.bf += 1
-			
-			if node.parent.bf != 0:
-				self.localUpdateBalance(node.parent)
-
-def localRebalance(self, node, index):
- 	if node.bf > 0:
- 		if node.right.bf < 0:
- 			self.localRightRotate(node.right,index)
- 			self.localLeftRotate(node,index)
- 		else:
- 			self.localLeftRotate(node,index)
- 		elif node.bf < 0:
- 			if node.left.bf > 0:
- 				self.localLeftRotate(node.left,index)
- 				self.localRightRotate(node,index)
- 			else:
- 				self.localRightRotate(node,index)
-
-  # rotate left at node x
-def localLeftRotate(self, x,index):
-	y = x.right
-	x.right = y.left
-	if y.left != None:
-    	y.left.parent = x
-	y.parent = x.parent;
-	if x.parent == None:
-		self.directory[index] = y
-	elif x == x.parent.left:
-		x.parent.left = y
-    else:
-    	x.parent.right = y
-
-    y.left = x
-    x.parent = y
-
-        # update the balance factor
-	x.bf = x.bf - 1 -treeMax(0, y.bf)
-    y.bf = y.bf - 1 + treeMin(0, x.bf)
-
-    # rotate right at node x
-
-def localRightRotate(self, x,index):
-	y = x.left
-	x.left = y.right;
-
-	if y.right != None:
-		y.right.parent = x
-        
-	y.parent = x.parent;
-	if x.parent == None:
-		self.directory[index] = y
-	elif x == x.parent.right:
-		x.parent.right = y
-	else:
-		x.parent.left = y
-
-	y.right = x
-	x.parent = y
-
-    # update the balance factor
-    x.bf = x.bf + 1 - treeMin(0, y.bf)
-    y.bf = y.bf + 1 + treeMax(0, x.bf)
-	
-def delete(self, key):
-	   node = self.member(k)
-        if node is None:
-            return -1
-
-        index = getIndex(key)
-        self.treeSizes[index] -= 1
-        root = self.directory[index]
-        self.deleteNode(root,key,index)
-
-def deleteNode(self,root,key,index):
-	if root is None:
-		return root
-
-	elif key < root.data:
-		root.left = self.deleteNode(root.left,key,index)
-	elif key > root.data:
-		root.right = self.deleteNode(root.right,key,index)
-	
-	else:
-		if root.left is None:
-			temp = root.right
-			root = None
-			if self.directory[index] is None:
-				self.directory[index] = temp
-			return temp
-
-		elif root.right is None:
-			temp = root.left
-			root = None
-			if self.directory[index] is None:
-				self.directory[index] = temp
-			return temp
-
-		temp = self.getMinNode(root.right)
-		root.data = temp.data
-		root.right = self.delete(root.right,temp.data,index)
-
-
-	if root is None:
-		return root
-
-
-	localUpdateBalance(self.directory[index])
-
-def predecessor(self, key):
-	node = member(key)
-
-	if node is None:
-		return None
-
-	if node.parent is not None:
-		if node.parent.data < key:
-			return node.parent.data
-	
-
-	if node.left is not None:
-		pred = treeMax(node.left)
-		return pred.data
-	
-	else:
-		index = getIndex(key)
-		while index > 0:
-			index -= 1 
-			node = self.directory[index]
-			if node is not None:
-				pred = treeMax(self.directory)
-				return pred.data
-
-		return None
-
-
-def successor(self, key):
-	node = member(key)
-
-	if node is None:
-		return None
-
-	if node.parent is not None:
-		if node.parent.data > key:
-			return node.parent.data
-	
-
-	if node.right is not None:
-		pred = treeMin(node.right)
-		return pred.data
-	
-	else:
-		index = getIndex(key)
-		while index < k+1:
-			index += 1 
-			node = self.directory[index]
-			if node is not None:
-				pred = treeMin(self.directory)
-				return pred.data
-
-		return None
-
-def minimum(self, key):
-	for i in range(len(self.directory)):
-		node = self.directory[i]
-		if node is not None:
-			return treeMin(node)
-	return -1
-
-def maximum(self, key):
-	for i in reversed(range(len(self.directory))):
-		node = self.directory[i]
-		if node is not None:
-			return treeMax(node)
-	return -1
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~helpers
-def treeMin(self, node):
-	while node.left != None:
-		node = node.left
-	return node.data
-
-    # find the node with the maximum key
-
-def treeMax(self, node):
-	while node.right != None:
-		node = node.right
-    return node.data
-
-def getMinNode(self.node):
-	while node.left != None:
-		node = node.left
-	return node
-
-def getIndex(self, key):
-	#PRE: key has been confirmed to be in inner range a->b
-	#Add one as an offset for the lower outer tree in 0
-	return ((key-self.a) // self.l) + 1
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Balancing
-
-def getRating(self, index):
-	treeSize = treeSizes[index]
-	threshold = math.ceil(log2(self.n))
-
-	if treeSize is 0:
-		return empty_rating
-
-	elif treeSize is threshold or treeSize is (threshold+1):
-		return full_rating
-
-	categorySize = threshold/category_size_divider
-
-	elif treeSize >= (threshold - categorySize):
-		return med_full_rating
-
-	elif treeSize >= (threshold - (categorySize*2)):
-		return low_full_rating
-
-	else:
-		return low_empty_rating 
-
-def adjustA(self, degree):
-	adjustment = degree * self.l
-	self.a -= adjustment
-	lockedL = True
-
-def adjustB(self, degree):
-	adjustment = degree * self.l
-	self.b += adjustment
-	lockedL = True
-
-def adjustL(self, degree):
-	forestRange = self.b - self.a
-	incr = 1
-	if degree < 0:
+	def adjustL(self, degree):
+		forestRange = self.b - self.a 
 		incr = -1
 
-	degree = abs(degree)
+		if degree < 0:
+			incr = 1
 
-	for i in range(degree):
-		self.l += incr
-		while (forestRange % self.l) is not 0:
-			self.l += incr 
+		for i in range(degree):
+			if self.l > 1:
+				self.l += incr
+				while self.l > 0  and self.l < forestRange and (forestRange % self.l) !=0:
+					self.l += incr
 
-	self.k = forestRange/self.l
+		self.k = forestRange//self.l 
 
-def balance(self):
-	ratedTrees = [0]*(self.k+2)
 
-	#Interpret
-	for i in range(self.k+2):
-		ratedTrees[i] = getRating(i)
 
-	#Partition
-	divider = cluster_size
-	sectionRating = [0]*3
-	index = 0
-	#low section
-	while index < divider:
-		sectionRating[0] += ratedTrees[index]
-		index+=1
+		#create node and perform avl insert
+		#increment tree size
+		#check balance of local tree
+	def insertInTree(self, index, key):
+		node = Node(key)
+		self.treeSizes[index] += 1
+		self.incrementForestSize() 
 
-	sectionRating[0] /= divider
+		root = self.directory[index]
+		node.left = root
+		if root is not None:
+			root.parent = node
+		self.directory[index] = node 
 
-	#middle section
-	while index < ((k+2) - divider):
-		sectionRating[1] += ratedTrees[index]
-		index+=1
+		if self.treeSizes[index] > self.t + 1:
+			self.balance()
 
-	sectionRating[1] /= ((k+2) - divider)
 
-	#high section
-	while index < (self.k+2):
-		sectionRating[2] += ratedTrees[index]
-		index+=1
+	def validateNodes(self, index):
+		return self.traverseTree(self.directory[index], index)
 
-	sectionRating[2] /= divider
+	def traverseTree(self, node, actualIndex):
+		if node is not None:
+			self.traverseTree(node.left,actualIndex)
+			print("TRAV:",node.data)
+			yield node.data
 
-	#Restructure
-	half = divider // 2
+		
 
-	#Adjust A
-	if sectionRating[0] is empty_rating
-		adjustA(-1*half)
-
-	elif sectionRating[0] > (full_rating // 2):
-		adjustA(strong_adj)
-
-	elif sectionRating[0] > (full_rating // 4):
-		adjustA(med_adj)
-
-	else:
-		adjustA(low_adj)
-
-	#Adjust B
-	if sectionRating[2] is empty_rating
-		adjustB(-1*half)
-
-	elif sectionRating[2] > (full_rating // 2):
-		adjustB(strong_adj)
-
-	elif sectionRating[2] > (full_rating // 4):
-		adjustB(med_adj)
-
-	else:
-		adjustB(low_adj)
-
-	#Adjust interval lengths
-	if sectionRating[1] > (full_rating // 2):
-		adjustL(-1 * strong_adj)
-
-	elif sectionRating[1] > (full_rating // 3):
-		adjustL(-1 * med_adj)
-
-	elif sectionRating[1] > 0 or lockedL:
-		adjustL(-1 * low_adj)
 	
-	elif sectionRating[1] > (empty_rating // 2):
-		adjustL(low_adj)
 
-	else:
-		adjustL(med_adj)
+	def deleteNode(self, root, key, index):
+		node = self.directory[index]
 
-	#Assignment 
-	displacments = []
-	for i in range(len(directory)):
-		if self.directory[i] is not None:
-			keys = validateNodes(i)
-			for key in keys:
-				displacments.append(key)
+		if node.data == key:
+			self.directory[index] = node.left
+			if node.left is not None:
+				node.left.parent = None
+		else:
+			while node.data != key:
+				node = node.left
 
-	for k in displacments:
-		i = getIndex(k)
-		insertInTree(i,k)
-
-def validateNodes(index)
-	temp = []
-	temp.append(self.inOrder(self.directory[index],index))
-	return temp
+			node.parent.left = node.left
+			if node.left is not None:
+				node.left.parent = node.parent
 
 
-def inOrder(self, node,actual):
-        if node != None:
-            self.inOrder(node.left,actual)
-            val = node.data
-            expected = getIndex(val)
-            if expected is not actual:
-            	deleteNode(node,val,actual)
-            	yield val
+		self.decrementTreeSize(index)
+		self.decrementForestSize()
 
-            self.inOrder(node.right,actual)
+
+
+
+	def printForest(self):
+		print(self.a,"-->",self.b)
+		print("n:",self.n)
+		print("k:", self.k)
+		print("t:",self.t)
+		print("l:",self.l)
+		print("Forest:")
+		for i in range(self.k+2):
+			print(i,":",end='')
+			r = self.directory[i]
+			while r is not None:
+				print(r.data,"",end='')
+				r = r.left
+			print("")
+
+
+bsf = BalancedSearchForest()
+for i in range(100):
+	if i%5 == 0:
+		bsf.insert(i)
+		bsf.printForest()
+		print("~~~~~~~~~~~~~~~~~~~~~~~~")
+
