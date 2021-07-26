@@ -7,7 +7,7 @@ med_rating = 1
 high_rating = 2
 full_rating = 5
 
-base = 1
+base = 10
 low_adj = 1 + base
 med_adj = 2 + base
 large_adj = 3 + base
@@ -33,12 +33,14 @@ class BalancedSearchForest:
 		self.l = 1
 		self.n = 0
 		self.balances = 0
+		self.rejects = 0
 
 	def insert(self, key):
 		if key<0:
 			return
 
 		if self.member(key) is not None:
+			self.rejects += 1
 			return
 
 		#starting out
@@ -102,9 +104,15 @@ class BalancedSearchForest:
 			node = node.left
 		return node
 
+	def maximum(self,node):
+		while node.right != None:
+			node = node.right
+		return node
+
 	def balance(self):
 		treeRatings = [0]*(self.k+2)
 		self.balances+=1
+		
 		#Interpret Phase
 		for i in range(self.k+2):
 			treeRatings[i] = self.treeRating(i)
@@ -135,7 +143,7 @@ class BalancedSearchForest:
 		elif sections[0] >= full_rating/4:
 			self.adjustA(med_adj)
 		elif sections[0] == empty_rating:
-			self.adjustA(-1 * med_adj)
+			self.adjustA(-1 * low_adj)
 		else:
 			self.adjustA(low_adj)
 		
@@ -175,9 +183,9 @@ class BalancedSearchForest:
 		self.treeSizes = newSizes
 
 		for key in self.displacements:
-			self.insert(key.data)
+			newIndex = self.getIndex(key.data)
+			self.insertInTree(newIndex, key.data)
 
-		self.updateBase()
 
 	def treeRating(self, index):
 		size = self.treeSizes[index]
@@ -231,31 +239,25 @@ class BalancedSearchForest:
 			self.t = 1
 
 	def adjustA(self, degree):
-		print("A = ",self.a, " B = ",self.b," D = ", self.a -(self.l * degree))
-		if self.a -(self.l * degree) < self.b:
+		if (self.a - (self.l * degree)) < self.b:
 			self.a -= (self.l * degree)
-			self.k += degree
 
 		if self.a < 0:
 			self.a = 0
+			self.adjustB(low_adj)
+		else:
+			self.k += degree
 
 		
 
-	def adjustB(self,degree):
-		if self.b+(self.l *degree)>self.a:
+
+	def adjustB(self, degree):
+		if (self.b - (self.l * degree)) > self.a:
 			self.b += (self.l * degree)
 			self.k += degree
 
-	def adjustB(self, degree):
-		if math.abs(degree) > 0:
-			if self.b + (self.l * degree) <= self.a:
-				#minus or plus one
-				adjustB(degree+1)
-			else: 
-				#TODO
-				self.b += (self.l * degree)
-				self
-
+	
+			
 
 	def adjustK(self,degree):
 		forestRange = self.b-self.a
@@ -268,10 +270,6 @@ class BalancedSearchForest:
 			self.k = 1
 
 		self.l = forestRange/self.k
-
-	def updateBase(self):
-		forestRange = self.b-self.a
-		base = math.floor(forestRange/10)
 
 
 	def insertInTree(self, index, key):
@@ -355,6 +353,7 @@ class BalancedSearchForest:
 		return y
 
 	def rightRotate(self, x):
+		
 		y = x.left
 		x.left = y.right;
 		if y.right != None:
@@ -383,7 +382,6 @@ class BalancedSearchForest:
 		self.traverseTree(self.directory[index], index, dis)
 		for node in dis:
 			self.deleteNode(self.directory[index],node.data,index)
-			self.decrementForestSize()
 			self.decrementTreeSize(index)
 		return dis
 
@@ -391,10 +389,11 @@ class BalancedSearchForest:
 		#In Order Traversal
 		if node != None:
 			self.traverseTree(node.left,actualIndex, dis)
+			self.traverseTree(node.right,actualIndex, dis)	
 			expected = self.getIndex(node.data)
 			if expected != actualIndex:
 				dis.append(node)	
-			self.traverseTree(node.right,actualIndex, dis)	
+			
 
 	
 
@@ -414,6 +413,8 @@ class BalancedSearchForest:
 				temp = root.right
 				if self.directory[index].data is key:
 					self.directory[index] = temp
+				if temp is not None:
+					temp.parent = root.parent
 				root = None
 				return temp
  
@@ -421,12 +422,15 @@ class BalancedSearchForest:
 				temp = root.left
 				if self.directory[index].data is key:
 					self.directory[index] = temp
+				if temp is not None:
+					temp.parent = root.parent
 				root = None
 				return temp
  
 			temp = self.minimum(root.right)
 			root.data = temp.data
 			root.right = self.deleteNode(root.right,temp.data, index)
+
  
 		# If the tree has only one node,	
 		# simply return it
@@ -475,10 +479,12 @@ class BalancedSearchForest:
 	def printForest(self):
 		print(self.a,"-->",self.b)
 		print("n:",self.n)
+		print("N:", self.n+self.rejects)
 		print("k:", self.k)
 		print("t:",self.t)
 		print("l:",self.l)
 		print("balnces:",self.balances)
+		return
 		print("Forest:")
 		for i in range(self.k+2):
 			print(i,":",end='')
@@ -489,7 +495,7 @@ class BalancedSearchForest:
 	def printHelper(self,node):
 		if node is not None:
 			self.printHelper(node.left)
-			print(node.data,"",end='')
+			print(node.data,end=' ')
 			self.printHelper(node.right)
 
 
@@ -497,24 +503,20 @@ class BalancedSearchForest:
 
 
 bsf = BalancedSearchForest()
-nums = [336,489,507,290,86,281,87,492,699,452]
-#num = []
-#for i in range(10):
-#	n = random.randint(0,1000)
-#	nums.append(n)
-#	print("INSERTing:",n)
+#nums = [69,638,229,698,599,56,724,807,459,494]
+nums = []
+for i in range(1000):
+	n = random.randint(0,1000000)
+	nums.append(n)
+	bsf.insert(n)
+
+#for n in nums:
+#	print("INSERTING:", n)
 #	bsf.insert(n)
 #	bsf.printForest()
-
-for n in nums:
-	print("INSERTING:", n)
-	bsf.insert(n)
-	bsf.printForest()
 
 
 bsf.printForest()
 for k in nums:
 	if bsf.member(k) is None:
 		print("CANT FIND",k)
-
-print(nums)
