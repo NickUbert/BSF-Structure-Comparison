@@ -1,5 +1,7 @@
 import math
 import random
+import sys
+
 #Enums
 empty_rating = -2
 low_rating = 0
@@ -7,10 +9,11 @@ med_rating = 1
 high_rating = 2
 full_rating = 5
 
-base = 10
-low_adj = 1 + base
-med_adj = 2 + base
-large_adj = 3 + base
+
+
+low_adj = 1
+med_adj = 2
+large_adj = 3
 
 
 class Node:
@@ -34,6 +37,7 @@ class BalancedSearchForest:
 		self.n = 0
 		self.balances = 0
 		self.rejects = 0
+		self.base = 1
 
 	def insert(self, key):
 		if key<0:
@@ -68,7 +72,10 @@ class BalancedSearchForest:
 				index = self.getIndex(key)
 				self.insertInTree(index, key)
 
+		
+
 		self.incrementForestSize() 
+		self.base = math.floor(self.n/10)
 
 	def member(self, key):
 		if key < 0:
@@ -99,12 +106,74 @@ class BalancedSearchForest:
 			return self.searchTree(node.left, key)
 		return self.searchTree(node.right, key)
 
-	def minimum(self, node):
+	def predecessor(self, key):
+		node = self.member(key)
+		if node != None:
+			index = self.getIndex(node.data)
+			m = self.minNode(self.directory[index])
+			if m != node:
+				#Tree search
+				if node.left != None:
+					return self.maxNode(x.left).data
+
+				p = node.parent
+				while p != None and node == p.left:
+					node = p
+					p = p.parent
+				
+				if p is None:
+					return None
+
+				return p.data
+			else:
+				#Forest Search
+				index -= 1
+				while index >= 0 and self.directory[index] is None:
+					index -= 1
+
+				if index < 0:
+					return None
+
+				return self.maxNode(self.directory[index]).data
+
+	def successor(self, key):
+		node = self.member(key)
+		if node != None:
+			index = self.getIndex(node.data)
+			m = self.maxNode(self.directory[index])
+			if m != node:
+				if x.right != None:
+					return self.minimum(x.right).data
+				
+				p = node.parent
+				while p != None and node == p.right:
+					node = p
+					p = p.parent
+
+				if p is None:
+					return None
+
+				return p.data
+			else:
+				#Forest Search
+				index += 1
+				while index <= self.k+1 and self.directory[index] is None:
+					index += 1
+
+				if index == self.k+2:
+					return None
+
+				return self.minNode(self.directory[index]).data
+
+
+
+
+	def minNode(self, node):
 		while node.left != None:
 			node = node.left
 		return node
 
-	def maximum(self,node):
+	def maxNode(self,node):
 		while node.right != None:
 			node = node.right
 		return node
@@ -139,32 +208,32 @@ class BalancedSearchForest:
 
 		#Restructure Phase
 		if sections[0] >= full_rating/3:
-			self.adjustA(large_adj)
+			self.adjustA(large_adj+self.base)
 		elif sections[0] >= full_rating/4:
-			self.adjustA(med_adj)
+			self.adjustA(med_adj+self.base)
 		elif sections[0] == empty_rating:
-			self.adjustA(-1 * low_adj)
+			self.adjustA(-1 * (low_adj+self.base))
 		else:
-			self.adjustA(low_adj)
+			self.adjustA(low_adj+self.base)
 		
 		if sections[2] >= full_rating/3:
-			self.adjustB(large_adj)
+			self.adjustB(large_adj+self.base)
 		elif sections[2] >= full_rating/4:
-			self.adjustB(med_adj)
+			self.adjustB(med_adj+self.base)
 		elif sections[2] == empty_rating:
-			self.adjustB(-1 * low_adj)
+			self.adjustB(-1 * (low_adj+self.base))
 		else:
-			self.adjustB(med_adj)
+			self.adjustB(med_adj+self.base)
 
 		
 		if sections[1] >= full_rating/2:
-			self.adjustK(large_adj)
+			self.adjustK(large_adj+self.base)
 		elif sections[1] >= full_rating/3:
-			self.adjustK(med_adj)
+			self.adjustK(med_adj+self.base)
 		elif sections[1] == empty_rating:
-			self.adjustK(-1 * large_adj)
+			self.adjustK(-1 * (large_adj+self.base))
 		else:
-			self.adjustK(low_adj)
+			self.adjustK(low_adj+self.base)
 
 		#Reassign
 		#Increase directory AND treesizes
@@ -244,17 +313,41 @@ class BalancedSearchForest:
 
 		if self.a < 0:
 			self.a = 0
-			self.adjustB(low_adj)
-		else:
-			self.k += degree
 
 		
-
-
 	def adjustB(self, degree):
-		if (self.b - (self.l * degree)) > self.a:
-			self.b += (self.l * degree)
-			self.k += degree
+		optionA = self.b + (self.l * degree)
+		#Shrink
+		if degree < 0:
+			if optionA > self.a:
+				self.b = optionA
+				self.adjustK(degree)
+			return
+
+		
+		if optionA < self.a:
+			optionA = 0
+
+		optionB = 0
+		if self.directory[self.k+1] is not None:
+				newB = self.minNode(self.directory[self.k+1]).data
+				extra = self.l
+				if self.treeSizes[self.k+1] > self.t:
+					extra = self.l*2
+				optionB = newB + extra 
+
+		if optionB == 0 and optionA == 0:
+			index = self.k
+			while index >= 0 and self.directory[index] is None:
+				index -= 1
+
+			self.b = self.minNode(self.directory[index])
+			return
+
+		choice = max(optionB, optionA)
+		self.b = choice
+		if choice == optionA:
+				self.adjustK(degree)
 
 	
 			
@@ -298,7 +391,7 @@ class BalancedSearchForest:
 		self.updateLocalBalance(node)
 
 		if self.treeSizes[index] > self.t + 1:
-			self.balance()
+				self.balance()
 
 		# update the balance factor the node
 	def updateLocalBalance(self, node):
@@ -427,7 +520,7 @@ class BalancedSearchForest:
 				root = None
 				return temp
  
-			temp = self.minimum(root.right)
+			temp = self.minNode(root.right)
 			root.data = temp.data
 			root.right = self.deleteNode(root.right,temp.data, index)
 
@@ -473,18 +566,7 @@ class BalancedSearchForest:
 		return root
 
 
-
-
-
 	def printForest(self):
-		print(self.a,"-->",self.b)
-		print("n:",self.n)
-		print("N:", self.n+self.rejects)
-		print("k:", self.k)
-		print("t:",self.t)
-		print("l:",self.l)
-		print("balnces:",self.balances)
-		return
 		print("Forest:")
 		for i in range(self.k+2):
 			print(i,":",end='')
@@ -498,25 +580,57 @@ class BalancedSearchForest:
 			print(node.data,end=' ')
 			self.printHelper(node.right)
 
+	def sanity(self):
+		Header = False
+		#if self.k > self.n:
+		#	print("####### ERROR: K EXCEEDS N")
+		#	Header = True
+
+		if self.a >= self.b:
+			if self.n > 5:
+				print("####### ERROR: A EXCEEDS B")
+				Header = True
+
+		if self.l < 1:
+			print("###### ERROR: L IS LESS THAN 1")
+			Header = True
+
+		if Header:
+			self.printHeader()
+			sys.exit()
 
 
 
 
-bsf = BalancedSearchForest()
-#nums = [69,638,229,698,599,56,724,807,459,494]
-nums = []
-for i in range(1000):
-	n = random.randint(0,1000000)
-	nums.append(n)
-	bsf.insert(n)
-
-#for n in nums:
-#	print("INSERTING:", n)
-#	bsf.insert(n)
-#	bsf.printForest()
+	def printHeader(self):
+		print(self.a,"-->",self.b)
+		print("n:",self.n)
+		print("N:", self.n+self.rejects)
+		print("k:", self.k)
+		print("t:",self.t)
+		print("l:",self.l)
+		print("balnces:",self.balances)
 
 
-bsf.printForest()
-for k in nums:
-	if bsf.member(k) is None:
-		print("CANT FIND",k)
+
+exK = 0
+for i in range(5):
+	print("~~~~~~~~~~~~~~~~~~~~TEST:",i,"~~~~~~~~~~~~~")
+	bsf = BalancedSearchForest()
+	nums = []
+	for i in range(10000):
+		n = i*5
+		nums.append(n)
+		bsf.insert(n)
+		bsf.sanity()
+
+	for k in nums:
+		if bsf.member(k) is None:
+			print("##### ERROR: CANT FIND",k)
+			bsf.printForest()
+			sys.exit()
+	bsf.printHeader()
+	if bsf.k > bsf.n:
+		exK += 1
+
+print("PASSED :", exK)
