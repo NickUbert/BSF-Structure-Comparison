@@ -36,7 +36,6 @@ class BalancedSearchForest:
 		self.l = 1
 		self.n = 0
 		self.balances = 0
-		self.rejects = 0
 		self.base = 1
 
 	def insert(self, key):
@@ -44,7 +43,6 @@ class BalancedSearchForest:
 			return
 
 		if self.member(key) is not None:
-			self.rejects += 1
 			return
 
 		#starting out
@@ -89,7 +87,7 @@ class BalancedSearchForest:
 		root = self.directory[index]
 		return self.searchTree(root,key)
 
-	def delete(self,key):
+	def remove(self,key):
 		node = self.member(key)
 		if node is None:
 			return 
@@ -114,7 +112,7 @@ class BalancedSearchForest:
 			if m != node:
 				#Tree search
 				if node.left != None:
-					return self.maxNode(x.left).data
+					return self.maxNode(node.left).data
 
 				p = node.parent
 				while p != None and node == p.left:
@@ -142,8 +140,9 @@ class BalancedSearchForest:
 			index = self.getIndex(node.data)
 			m = self.maxNode(self.directory[index])
 			if m != node:
-				if x.right != None:
-					return self.minimum(x.right).data
+				#Tree search
+				if node.right != None:
+					return self.minNode(node.right).data
 				
 				p = node.parent
 				while p != None and node == p.right:
@@ -167,6 +166,21 @@ class BalancedSearchForest:
 
 
 
+	def minimum(self):
+		if self.n > 0:
+			index = 0
+			while self.directory[index] is None:
+				index += 1
+			return self.minNode(self.directory[index]).data
+		return None
+
+	def maximum(self):
+		if self.n > 0:
+			index = self.k + 1
+			while self.directory[index] is None:
+				index -= 1
+			return self.maxNode(self.directory[index]).data
+		return None
 
 	def minNode(self, node):
 		while node.left != None:
@@ -580,57 +594,12 @@ class BalancedSearchForest:
 			print(node.data,end=' ')
 			self.printHelper(node.right)
 
-	def sanity(self):
-		Header = False
-		#if self.k > self.n:
-		#	print("####### ERROR: K EXCEEDS N")
-		#	Header = True
-
-		if self.a >= self.b:
-			if self.n > 5:
-				print("####### ERROR: A EXCEEDS B")
-				Header = True
-
-		if self.l < 1:
-			print("###### ERROR: L IS LESS THAN 1")
-			Header = True
-
-		if Header:
-			self.printHeader()
-			sys.exit()
-
-
-
-
 	def printHeader(self):
 		print(self.a,"-->",self.b)
 		print("n:",self.n)
-		print("N:", self.n+self.rejects)
 		print("k:", self.k)
 		print("t:",self.t)
 		print("l:",self.l)
 		print("balnces:",self.balances)
 
 
-
-exK = 0
-for i in range(5):
-	print("~~~~~~~~~~~~~~~~~~~~TEST:",i,"~~~~~~~~~~~~~")
-	bsf = BalancedSearchForest()
-	nums = []
-	for i in range(10000):
-		n = i*5
-		nums.append(n)
-		bsf.insert(n)
-		bsf.sanity()
-
-	for k in nums:
-		if bsf.member(k) is None:
-			print("##### ERROR: CANT FIND",k)
-			bsf.printForest()
-			sys.exit()
-	bsf.printHeader()
-	if bsf.k > bsf.n:
-		exK += 1
-
-print("PASSED :", exK)

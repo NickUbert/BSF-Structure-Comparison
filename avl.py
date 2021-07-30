@@ -62,7 +62,7 @@ class AVLTree:
 
             # case 3: has both children
             else:
-                temp = self.minimum(node.right)
+                temp = self.getMin(node.right)
                 node.data = temp.data
                 node.right = self.__deleteNodeHelper(node.right, temp.data)
 
@@ -140,24 +140,26 @@ class AVLTree:
         return self.__searchTreeHelper(self.root, k)
 
     # find the node with the minimum key
-    def minimum(self, node):
-        while node.left != None:
-            node = node.left
+    def getMin(self, node):
+        if node != None:
+            while node.left != None:
+                node = node.left
         return node
 
     # find the node with the maximum key
-    def maximum(self, node):
-        while node.right != None:
-            node = node.right
+    def getMax(self, node):
+        if node != None:
+            while node.right != None:
+                node = node.right
         return node
 
     # find the successor of a given node
-    def successor(self, x):
+    def getSuccessor(self, x):
         # if the right subtree is not null,
         # the successor is the leftmost node in the
         # right subtree
         if x.right != None:
-            return self.minimum(x.right)
+            return self.getMin(x.right)
 
         # else it is the lowest ancestor of x whose
         # left child is also an ancestor of x.
@@ -168,12 +170,12 @@ class AVLTree:
         return y
 
     # find the predecessor of a given node
-    def predecessor(self, x):
+    def getPredecessor(self, x):
         # if the left subtree is not null,
         # the predecessor is the rightmost node in the 
         # left subtree
         if x.left != None:
-            return self.maximum(x.left)
+            return self.getMax(x.left)
 
         y = x.parent
         while y != None and x == y.left:
@@ -258,38 +260,38 @@ class AVLTree:
     def getWork(self):
         return 0 
 
-    def min(self):
-        return self.minimum(self.root).data
+    def minimum(self):
+        return self.getMin(self.root)
 
-    def max(self):
-        return self.maximum(self.root).data
+    def maximum(self):
+        return self.getMax(self.root)
 
-    def getPredecessor(self, k):
+    def predecessor(self, k):
         n = self.searchTree(k)
         if n is None:
             return -1
-        v = self.predecessor(n)
+        v = self.getPredecessor(n)
         if v is None:
             return -1
 
-        return v.data  
+        return v
 
-    def getSuccessor(self, k):
+    def successor(self, k):
         n = self.searchTree(k)
         if n is None:
             return -1
-        v = self.successor(n)
+        v = self.getSuccessor(n)
         if v is None:
             return -1
 
-        return v.data  
+        return v 
 
     def remove(self, k):
         n = self.searchTree(k)
         if n is None:
             return -1
 
-        self.deleteNode(k)
+        return self.deleteNode(k)
 
-    def getStorage(self):
-        return 0
+    def member(self, k):
+        return self.searchTree(k)
